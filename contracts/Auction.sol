@@ -40,7 +40,7 @@ contract Auction {
 
   // Allows a user to close their channel
   function closeChannel() {
-    require(channels[msg.sender] && timeout != channels[msg.sender].timeout);
+    require(channels[msg.sender] && now >= channels[msg.sender].timeout);
 
     if (!msg.sender.send(channels[msg.sender].deposit)) throw;
     delete channels[msg.sender];
