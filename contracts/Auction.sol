@@ -8,44 +8,61 @@ contract Auction {
     address public sender;
     address public receiver;
     uint public deposit;
+    uint public timeout;
   }
 
   mapping (address => Channel) channels;
 
+  // Constructor
   function Auction(uint t) {
     owner = msg.sender;
     timeout = now + t;
   }
 
-  function createChannel(uint t, uint d) {
-    if (!channels[msg.sender]) {
-      Channel memory channel;
-      channel.sender = msg.sender;
-      channel.receiver = owner;
-      channel.deposit = msg.value;
-
-      channels[msg.sender] = channel;
-    }
+  // Allows contract owner to begin a new auction if timeout is passed
+  function reset(uint t) {
+    require(msg.sender == owner && now >= timeout);
+    timeout = t;
   }
 
-  function bid(uint bid) {
-    channel = channels[msg.sender];
-    if(now < timeout) {
+  // Allows a user to create a new payment channel
+  function createChannel(uint d) {
+    require(!channels[msg.sender] && msg.value > 0 && timeout != 0);
 
-    }
+    Channel memory channel;
+    channel.sender = msg.sender;
+    channel.receiver = owner;
+    channel.deposit = msg.value;
+    channel.timeout = timeout;
+
+    channels[msg.sender] = channel;
   }
 
-  function verifyBid() {
-  
+  // Allows a user to close their channel
+  function closeChannel() {
+    require(channels[msg.sender] && now >= channels[msg.sender].timeout);
+
+    if (!msg.sender.send(channels[msg.sender].deposit)) throw;
+    delete channels[msg.sender];
   }
 
-  function closeChannel(Channel channel) {
+  // Allows the contract owner to recover funds from a winning contract
+  function endAuction(bytes32 hash, uint8 v, bytes32 r, bytes32 s, uint value) {
+    require(now >= timeout && msg.sender == owner);
 
-  }
+    address signer;
+    bytes32 proof;
 
-  function endAuction(address winner) {
-    closeChannel(channels[winner])
-    delete channels;
+    signer = ecrecover(hash, v, r, s);
+    if (!channels[signer]) throw;
+
+    proof = sha3(channels[signer], value);
+    if (proof != hash || timeout != channels[signer] || value > channels[signer].deposit) throw;
+
+    //TODO - Learn more about EC cryptography & complete proof/signer recovery
+
+    if (!owner.send(value) || !signer.send(channels[signer].deposit - value)) throw;
+    timeout = 0;
   }
 
 }
