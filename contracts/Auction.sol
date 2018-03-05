@@ -5,10 +5,10 @@ contract Auction {
   uint timeout;
 
   struct Channel {
-    address public sender;
-    address public receiver;
-    uint public deposit;
-    uint public timeout;
+    address sender;
+    address receiver;
+    uint deposit;
+    uint timeout;
   }
 
   mapping (address => Channel) channels;
@@ -27,7 +27,7 @@ contract Auction {
 
   // Allows a user to create a new payment channel
   function createChannel(uint d) {
-    require(!channels[msg.sender] && msg.value > 0 && timeout != 0);
+    require(channels[msg.sender].deposit != 0 && msg.value > 0 && timeout != 0);
 
     Channel memory channel;
     channel.sender = msg.sender;
@@ -40,7 +40,7 @@ contract Auction {
 
   // Allows a user to close their channel
   function closeChannel() {
-    require(channels[msg.sender] && now >= channels[msg.sender].timeout);
+    require(channels[msg.sender].deposit != 0 && now >= channels[msg.sender].timeout);
 
     if (!msg.sender.send(channels[msg.sender].deposit)) throw;
     delete channels[msg.sender];
@@ -54,10 +54,10 @@ contract Auction {
     bytes32 proof;
 
     signer = ecrecover(hash, v, r, s);
-    if (!channels[signer]) throw;
+    if (channels[msg.sender].deposit != 0) throw;
 
     proof = sha3(channels[signer], value);
-    if (proof != hash || timeout != channels[signer] || value > channels[signer].deposit) throw;
+    if (proof != hash || timeout != channels[signer].timeout || value > channels[signer].deposit) throw;
 
     //TODO - Learn more about EC cryptography & complete proof/signer recovery
 
